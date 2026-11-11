@@ -3,15 +3,15 @@
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![stars](https://img.shields.io/github/stars/SPA3K/vibe-trip-skill?style=flat&logo=github&label=stars)](https://github.com/SPA3K/vibe-trip-skill/stargazers)
 [![python](https://img.shields.io/badge/python-3.8%2B-blue)](scripts/)
-[![i18n](https://img.shields.io/badge/i18n-%E4%B8%AD%E8%8B%B1%E5%8F%8C%E8%AF%AD-brightgreen)](README.md)
+[![i18n](https://img.shields.io/badge/i18n-CN%2FEN%2FJA%2FKO-brightgreen)](README.md)
 
 **A one-stop travel skill driven by travel personality, needs, and budget together**: start from who you are and what you want, derive the destination and itinerary, compare prices across multiple sources, then hand the watch job to a cron. Formerly `trip-planner`, renamed at 2.0.
 
-[中文](README.md)
+[中文](README.md) · [日本語](README_JA.md) · [한국어](README_KO.md)
 
 | Standalone scripts | Calendar floor price | API dependency | Delivery | Docs |
 |---|---|---|---|---|
-| **6** | **366** days per call | **0** keys (verified today), no login | silent when nothing changes | CN + EN |
+| **6** | **366** days per call | **0** keys (verified today), no login | silent when nothing changes | 4 languages |
 
 ## 5-minute quickstart
 
@@ -135,7 +135,7 @@ Browser scripts attach over CDP to a real browser (cua-driver and Playwright bot
 
 ```
 vibe-trip-skill/
-├── README.md / README_EN.md   # bilingual docs
+├── README*.md                 # docs in 4 languages (CN / EN / JA / KO)
 ├── SKILL.md                   # skill definition: ten-step flow + toolbox + gotchas
 ├── LICENSE
 ├── assets/

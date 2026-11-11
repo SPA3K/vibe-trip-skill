@@ -3,15 +3,15 @@
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![stars](https://img.shields.io/github/stars/SPA3K/vibe-trip-skill?style=flat&logo=github&label=stars)](https://github.com/SPA3K/vibe-trip-skill/stargazers)
 [![python](https://img.shields.io/badge/python-3.8%2B-blue)](scripts/)
-[![i18n](https://img.shields.io/badge/i18n-%E4%B8%AD%E8%8B%B1%E5%8F%8C%E8%AF%AD-brightgreen)](README_EN.md)
+[![i18n](https://img.shields.io/badge/i18n-CN%2FEN%2FJA%2FKO-brightgreen)](README_EN.md)
 
 **旅行性格 + 需求 + 预算共同驱动的一条龙旅行技能**：从性格与需求探讨出发推导目的地和行程，再多来源查价比价，最后交给 cron 持续盯价。原名 `trip-planner`，2.0 更名。
 
-[English](README_EN.md)
+[English](README_EN.md) · [日本語](README_JA.md) · [한국어](README_KO.md)
 
 | 即拿即用脚本 | 日历底价 | API 依赖 | 播报方式 | 文档 |
 |---|---|---|---|---|
-| **6** 个 | **366** 天/次调用 | **0** key（当前实测）· 免登录 | 无变化零输出 | 中英双语 |
+| **6** 个 | **366** 天/次调用 | **0** key（当前实测）· 免登录 | 无变化零输出 | 4 语（中英日韩） |
 
 ## 5 分钟跑通
 
@@ -133,7 +133,7 @@ python scripts/vibe_trip_monitor.py --verbose   # 本地跑一轮盯价
 
 ```
 vibe-trip-skill/
-├── README.md / README_EN.md   # 中英双语说明
+├── README*.md                 # 4 语说明（中 / 英 / 日 / 韩）
 ├── SKILL.md                   # skill 定义：十步流程 + 工具箱 + Gotchas
 ├── LICENSE
 ├── assets/                    # 架构图 + 数据样例图（真实脚本输出渲染）
