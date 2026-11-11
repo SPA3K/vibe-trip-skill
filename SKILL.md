@@ -1,6 +1,6 @@
 ---
 name: vibe-trip-skill
-version: 2.0.0
+version: 2.1.0
 description: "一条龙旅行技能（原 trip-planner，2.0 更名）：从性格/偏好探讨与需求收集出发 → 推导目的地与行程结构 → 酒店四维核验与身份硬核验 → 多来源查价比价（携程日历底价 API、列表页航班号、Booking/Agoda 房产页配方）→ no_agent cron 持续盯价（史低告警、同机航班配对、退旧订新）。USE WHEN 规划旅行/度假/蜜月行程、查机票酒店价格、多来源比价、盯价/价格监控、核验酒店身份与营业风险、目的地安全/健康风险排查、复盘旅行预算。NOT FOR 盯价技术深水区（同意墙/告警防复读细节用 web-price-monitoring）、二手商品监控（用 xianyu-monitoring）。"
 tags: [travel, hotel, budget, monitoring, planning, price, vibe-trip]
 ---
