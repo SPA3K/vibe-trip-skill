@@ -142,7 +142,7 @@ python scripts/hotel_price_check.py --platform booking --url "https://www.bookin
 python scripts/vibe_trip_monitor.py --verbose     # 本地跑一轮盯价
 ```
 
-### 11.2 两种接入方式
+### 11.2 工具箱的两种运行方式（接入仓库只有「skill 整包」一种，见 README）
 1. **即拿即用（CLI）**：任何机器 `python scripts/xxx.py` 直接出结果，无需 agent、无需注册；配合 cron 即成无人值守盯价。
 2. **Agent + cua-driver**：浏览器类脚本走 CDP（默认 `http://127.0.0.1:9333`）附着**真实浏览器**——登录态可复用（扫码一次，见 skill `qr-login-state`）、验证码/同意墙可在会话内人工处理、核验过程的截图可直接发到对话里看。agent 侧用 cua-driver / Playwright `connect_over_cdp` 驱动同一浏览器，与 CLI 共享 profile，互不打架。
 

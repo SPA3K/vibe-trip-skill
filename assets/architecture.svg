@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="120" viewBox="0 0 700 120" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#57606a"/>
+    </marker>
+  </defs>
+  <g fill="#f6f8fa" stroke="#57606a" stroke-width="1.2">
+    <rect x="10" y="30" width="150" height="56" rx="8"/>
+    <rect x="200" y="30" width="160" height="56" rx="8"/>
+    <rect x="400" y="30" width="140" height="56" rx="8"/>
+    <rect x="580" y="30" width="110" height="56" rx="8"/>
+  </g>
+  <g fill="#1f2328" text-anchor="middle">
+    <text x="85" y="53">旅行性格 + 需求 + 预算</text>
+    <text x="85" y="72" font-size="11" fill="#57606a">SKILL.md 十步流程</text>
+    <text x="280" y="53">目的地 · 行程 · 酒店核验</text>
+    <text x="280" y="72" font-size="11" fill="#57606a">安全度两层硬门槛</text>
+    <text x="470" y="53">查价 scripts/</text>
+    <text x="470" y="72" font-size="11" fill="#57606a">日历 API · 列表页 · 房产页</text>
+    <text x="635" y="53">盯价 cron</text>
+    <text x="635" y="72" font-size="11" fill="#57606a">state → 静默播报</text>
+  </g>
+  <g stroke="#57606a" stroke-width="1.4" marker-end="url(#ar)" fill="none">
+    <line x1="160" y1="58" x2="196" y2="58"/>
+    <line x1="360" y1="58" x2="396" y2="58"/>
+    <line x1="540" y1="58" x2="576" y2="58"/>
+  </g>
+</svg>
