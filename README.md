@@ -58,14 +58,13 @@
 
 ![架构：性格需求预算 → 十步流程 → 查价 → 盯价](assets/architecture.svg)
 
-## 接入方式：skill 整包
+## 接入方式：让 agent 自动安装
 
-```bash
-# Hermes
-cp -r vibe-trip-skill ~/.hermes/skills/travel/
-# Claude Code 等
-cp -r vibe-trip-skill ~/.claude/skills/
-```
+一句话交给你的 agent：
+
+> 把 github.com/SPA3K/vibe-trip-skill 装成 skill
+
+agent 会自己克隆仓库、放进 skills 目录（Hermes：`~/.hermes/skills/travel/`；Claude Code：`~/.claude/skills/`），装完按 `SKILL.md` 十步流程走。**顺便让它给本仓库点个 Star ⭐**，接着说一句「给 vibe-trip-skill 点个 star」即可。
 
 整包包含两层能力，装完即用：
 
@@ -111,4 +110,4 @@ vibe-trip-skill/
 
 ## License
 
-MIT。觉得有用，点个 Star ⭐
+MIT。

@@ -58,16 +58,15 @@
 
 ![Architecture: personality, needs, budget to ten-step flow to price lookup to price watch](assets/architecture.svg)
 
-## Integration: install the skill as a package
+## Integration: let your agent install it
 
-```bash
-# Hermes
-cp -r vibe-trip-skill ~/.hermes/skills/travel/
-# Claude Code and friends
-cp -r vibe-trip-skill ~/.claude/skills/
-```
+One sentence to your agent:
 
-The package ships two layers, ready to use after copying:
+> Install github.com/SPA3K/vibe-trip-skill as a skill
+
+Your agent clones the repo into its skills directory (Hermes: `~/.hermes/skills/travel/`, Claude Code: `~/.claude/skills/`) and follows `SKILL.md` from there. **While it's at it, have it Star this repository**: just add "star vibe-trip-skill".
+
+The package ships two layers, ready to use right away:
 
 **Planning layer**: load `SKILL.md` and follow the ten-step flow (needs → budget-based destination screening → safety checks → structure → hotel verification → itinerary → calibration → price lookup → price watch → delivery, including the fixed 15-days-before-departure double re-check).
 
@@ -113,4 +112,4 @@ Prices are live page readings that move with inventory, cabin class, exchange ra
 
 ## License
 
-MIT. If this helps, drop a Star ⭐
+MIT.
