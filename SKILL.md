@@ -1,24 +1,25 @@
 ---
-name: trip-planner
-version: 1.0.0
-description: "预算驱动的旅行规划与酒店核验 + 浏览器价格监控：目的驱动（用户只说想要什么体验，目的地与其余全部推导）、十步流程（需求→预算筛选目的地→安全度排查→结构分配→酒店四维核验→海滩评估→身份硬核验→每日行程→预算校准→可信度分级→交付）、目的地安全度两层排查（CDC疾病/备孕健康门槛 + 订票与出发前15天政治地貌复核），与携程/Booking/Agoda 盯价配方。USE WHEN 规划旅行/度假/蜜月行程、核验酒店身份与营业风险、目的地安全/健康风险排查、盯机票酒店价格、复盘旅行预算。NOT FOR 盯价技术深水区（同意墙/告警防复读细节用 web-price-monitoring）。"
-tags: [travel, hotel, budget, monitoring, planning]
+name: vibe-trip-skill
+version: 2.0.0
+description: "一条龙旅行技能（原 trip-planner，2.0 更名）：从性格/偏好探讨与需求收集出发 → 推导目的地与行程结构 → 酒店四维核验与身份硬核验 → 全平台查价比价（携程日历底价免费 API、列表页航班号、Booking/Agoda 房产页配方）→ no_agent cron 持续盯价（史低告警、同机航班配对、退旧订新）。USE WHEN 规划旅行/度假/蜜月行程、查机票酒店价格、全平台比价、盯价/价格监控、核验酒店身份与营业风险、目的地安全/健康风险排查、复盘旅行预算。NOT FOR 盯价技术深水区（同意墙/告警防复读细节用 web-price-monitoring）、二手商品监控（用 xianyu-monitoring）。"
+tags: [travel, hotel, budget, monitoring, planning, price, vibe-trip]
 ---
+# Vibe Trip Skill — 一条龙：需求探讨 → 定地点 → 查价 → 盯价
 
-# Trip Planner — 预算驱动的旅行规划与酒店验证 + 价格监控
-
-> ## ⚠️ 发布脱敏铁律（本 skill 公开发布，最高优先）
-> 本 skill 随时可能同步到公开仓库。任何版本禁止写入：**真实出行日期、出发城市、订单实价、订单号、支付账户、家庭住址、精确坐标、聊天身份信息**。案例中的数值一律用占位符（如「示例：3 万级预算」）。实时行程参数只存本地 memory / cron 配置，不进 skill。
+> ## ⚠️ 发布脱敏铁律（本 skill 随时可能同步到公开仓库，最高优先）
+> 任何版本禁止写入：**真实出行日期、出发城市、订单实价、订单号、支付账户、家庭住址、精确坐标、聊天身份信息**。案例数值一律用占位符（如「示例：3 万级预算」）。实时行程参数只存本地 memory / cron 配置文件，不进 skill。
 
 ## 0. 核心原则
 **目的驱动，而非目的地驱动**：用户只需说出「我想要什么、想体验什么、喜欢什么感觉」——目的地、路线、结构、酒店、行程**全部由方案推导**，不要求用户先选国家。
 
-**先需求，后目的地；先总预算，后酒店；先官方核验，再看住客评价；先确认酒店身份，再判断营业风险；最后才生成完整行程。**
+**先需求，后目的地；先总预算，后酒店；先官方核验，再看住客评价；先确认酒店身份，再判断营业风险；最后才生成完整行程；交付之后进入查价与持续盯价。**
 
 ---
 
-## 1. 第一步：逐步确认旅行需求
+## 1. 第一步：逐步确认旅行需求（含性格探讨）
 通过自然对话收集，**不要一上来发长问卷**。用户常以「愿望」开场（想要的感觉、想要的体验）——agent 负责把愿望翻译成目的地与结构，而不是反过来要求用户先指定国家。
+
+**性格与风格**：出行节奏（暴走 vs 躺平）｜独处 vs 社交｜计划型 vs 随性型｜拍照党/美食党/体验党｜风险容忍度（换酒店、长途交通、未知食物）。
 
 **基础信息**：出发地｜出行日期与总天数｜人数｜总预算及最高预算｜是否已有固定日期/已购机票/已订酒店。
 
@@ -114,31 +115,45 @@ tags: [travel, hotel, budget, monitoring, planning]
 
 ---
 
-## 11. 价格监控自动化（浏览器实抓，本机已验证）
-> 技术深水区详见 **skill `devops/web-price-monitoring`**（PIPL 同意墙、区域过滤、告警防复读等十坑速查）；此处为部署骨架。
+## 11. 查价与盯价（scripts/ 即拿即用 + cua-driver 双模式）
 
-**选型现状（2026-11 核实）**：Amadeus 免费档已关停、Kiwi 仅邀约、Skyscanner 要审批 → **浏览器直查为主路线（¥0 零注册、实时全脂）**；Travelpayouts/SerpApi/Kiwi-MCP 作补充。**国内网络+国内平台优先，海外源作补充。**
+> 技术深水区（PIPL 同意墙、区域过滤、告警防复读十坑）见 **skill `devops/web-price-monitoring`**；本节是本 skill 固化的工具箱。
 
-**架构**：
+### 11.1 scripts/ 工具箱（免费查询 API，即拿即用）
+
+| 脚本 | 能力 | 依赖 | 关键事实（2026-11 实测） |
+|---|---|---|---|
+| `ctrip_lowest_price.py` | 携程日历底价：任意三字码城市对 + 日期 → 该日最低价（元），一次返回 366 天日历 | 纯标准库 | **免费、免登录、免 key**；`price=0` = 无航班；口径=低价日历，与列表页「¥XX起」可能略有差异 |
+| `ctrip_flight_list.py` | 携程列表页：航班号、起降时刻、价格、经停行程的**全部航班号** | playwright(CDP) | 国内线免登录；**国际线登录墙时有时无**（`needUserLogin` 翻转），gated 时优雅降级返回 `gated=true` |
+| `hotel_price_check.py` | 酒店比价：Booking 搜索页 / **Booking 房产页（推荐）** / Agoda 房产页 → 房型、整段总价、可取消价 | playwright(CDP) | **Booking 搜索页会对自动化降级谎报「暂无空房」（实测连大型酒店近期日期都骗），房产页带日期参数的房型表才是真库存** |
+| `vibe_trip_monitor.py` | 多段机票 + 多酒店持续盯价：史低状态机、单合计、同机航班配对、退旧订新告警 | playwright(CDP) | 静默契约（无变化零输出），`--verbose` 看读数；配置 `vibe_trip_config.json` |
+| `vibe_trip_entry.py` | cron 入口：把监控转交给带 playwright 的 Python 并透传 stdout | 纯标准库 | Windows 的 no_agent cron **没有 bash**（.sh 直接报错），默认 PATH 的 python 没 playwright → 必须用它 |
+
+配置文件（本地，不进仓库）：`vibe_trip_config.json` — `legs`（航段）/ `orders`（单合计）/ `pairing`（recommend=两人同航班腿、match=同机配对腿）/ `reference`（参考价阈值）/ `hotels`（`url`=房产页、`room_must`=房型关键词 AND 语义、`alert_below`=跌破已订价=退旧订新线、`cap`=预算线）/ `chrome`（CDP 端点与 profile）。仓库只带 `scripts/config.example.json`（占位符）。
+
+```bash
+# 即拿即用示例
+python scripts/ctrip_lowest_price.py --dep PEK --arr BKK --date 2027-06-10 --window 3
+python scripts/ctrip_flight_list.py --dep pek --arr bkk --date 2027-06-10
+python scripts/hotel_price_check.py --platform booking --url "https://www.booking.com/hotel/th/xxx.html" \
+    --checkin 2027-06-10 --checkout 2027-06-17 --nights 7 --room-must 豪华间
+python scripts/vibe_trip_monitor.py --verbose     # 本地跑一轮盯价
 ```
-专用 Chrome profile（独立 user-data-dir + CDP 端口，不碰日常浏览器）
- → miniconda python + playwright connect_over_cdp（默认 python 无 playwright）
- → 解析 → state JSON（values / mins / alerted）
- → no_agent cron 跑 .sh 包装 → 静默契约：无事零输出，新低/破阈值/出错才播报
+
+### 11.2 两种接入方式
+1. **即拿即用（CLI）**：任何机器 `python scripts/xxx.py` 直接出结果，无需 agent、无需注册；配合 cron 即成无人值守盯价。
+2. **Agent + cua-driver**：浏览器类脚本走 CDP（默认 `http://127.0.0.1:9333`）附着**真实浏览器**——登录态可复用（扫码一次，见 skill `qr-login-state`）、验证码/同意墙可在会话内人工处理、核验过程的截图可直接发到对话里看。agent 侧用 cua-driver / Playwright `connect_over_cdp` 驱动同一浏览器，与 CLI 共享 profile，互不打架。
+
+### 11.3 持续盯价（cron 部署骨架）
 ```
-
-**站点配方速查**：
-| 站点 | 配方 |
-|---|---|
-| 携程机票 | `flights.ctrip.com/online/list/oneway-{dep}-{arr}?depdate=YYYY-MM-DD&cabin=y_s&adult=1`；正则 `[¥￥]\s*([\d,]{3,7})` 取 min |
-| Booking 酒店 | `searchresults.html?ss=...&checkin=&checkout=&selected_currency=CNY&order=price`；PIPL 同意墙用 JS `input.click()` 按 index 勾选（隐藏 input，`check()` 必超时）；**区域过滤只认「显示在地图上」行**；晚数用**正向匹配** `N晚`（防促销文案「连住2晚」劫持） |
-| Agoda 酒店 | 房产页直接带 `checkIn/checkOut/currency=CNY` 参数（会转 .cn 但参数保留）；价格对公式 **实付 = 划线价 − 已减**（`已减([\d,]+)\s*RMB[\s\S]{0,60}?¥\s*([\d,]{3,7})`）；**含税单价 × 晚数 = 估算总价**；**不可退款档**：政策文本元素上溯至含价格对的最近容器取 pay（DOM 配对，防串档） |
-
-**告警设计**：`mins` 只在破历史低时报新低；`alerted` 记上次播报值 → **值没变不复读**；涨破阈值时清除 alerted，再跌破才报；状态翻转（订满↔有房）各自去重键。
-
-**部署四步**：① 改配置常量（日期/预算/目标）→ `--verbose` 实测两轮 ② 每类过滤各抽 3 条人工核对 ③ 换 cron 脚本名/周期 `deliver=origin` ④ 需登录态的站点扫码一次存 profile（skill `qr-login-state`）。
-
-**浏览器实体**：`PLAYWRIGHT_BROWSERS_PATH` 指向大盘（勿放系统盘），launch 自检通过才算部署完成。
+no_agent cron → script=vibe_trip_entry.py → vibe_trip_monitor.py
+ → 状态 JSON（values/mins/alerted）→ 无事零输出；新低/破参考价/配对变化/出错才播报
+```
+- **史低状态机**：`mins` 只在破历史低时报新低；`alerted` 记上次播报值 → 值没变不复读；涨破阈值清键，再跌破才报。
+- **同机航班配对**：共享腿（如返程）推荐两人同航班；配对腿用「一段行程包含另一段的航班号」识别**经停同机**（去程 `AB1234+CD5678 经停` 的第二段 = 中转段的 `CD5678` 同机抵达）。
+- **退旧订新**：已订可退款酒店设 `alert_below`=实付价，挂牌价跌破即提醒退旧订新；决策窗口 = 免费取消截止日。
+- **部署四步**：① 改本地 config（日期/预算/目标）→ `--verbose` 实测两轮 ② 每类过滤人工核对 ③ 换 cron 脚本名/周期 `deliver=origin` ④ 需登录态的站点扫码一次存 profile（skill `qr-login-state`）。
+- **浏览器实体**：`PLAYWRIGHT_BROWSERS_PATH` 指向大盘（勿放系统盘），launch 自检通过才算部署完成。
 
 ---
 
@@ -147,7 +162,7 @@ tags: [travel, hotel, budget, monitoring, planning]
 **结构**：海岛城市 4 晚（文化美食咖啡慢生活）+ 海岛 5 晚（沙滩泳池日落）+ 枢纽城市 2 晚（购物返程）。
 **酒店决策链（教训载体）**：曾将候选「洲际」误解为某集团旗舰 → 用户澄清实为同集团**另一品牌**的度假村 → 识别到「集团≠品牌」→ 后续对比设计型海滩俱乐部（氛围好但偏吵）→ 最终按「安静 + 可下水沙滩」权重选定**预算内海滨度假村 5 晚**。
 **预算估算**：全程约为总包的 77%-95% 区间，**以实际航班/酒店订单/当地消费为准**（已确认 vs 估算分列）。
-**监控部署**：① 机票双单程（去程 + 返程，合计对参考价设阈值）② 酒店已订**可退款档**（保留至免费取消死线）③ 持续盯**不可退款档底价**——跌破持有价位即「退旧订新」，否则现持有即最优保险。**决策窗口 = 免费取消截止日。**
+**监控部署**：① 机票多航段分单盯史低 + 单合计 ② 酒店已订**可退款档**（`alert_below` 盯跌破=退旧订新）③ 未订酒店查价待选 ④ 返程共享腿盯两人同航班、去程盯经停同机。**决策窗口 = 免费取消截止日。**
 
 ## 13. 五条沉淀经验
 1. **需求导向而非目的地导向**：多目的地横评（海岛/文化/预算型），最终胜出的不是最热门，而是**同时满足**沙滩+文化+美食+预算的那个。
@@ -159,23 +174,28 @@ tags: [travel, hotel, budget, monitoring, planning]
 ## 14. 发布前脱敏检查清单
 每次修改 skill 后、push 前逐项过：
 - [ ] 无真实日期（改为「示例/相对」表述）
-- [ ] 无出发城市/家庭位置（改「某城市」）
+- [ ] 无出发城市/家庭位置（改「某城市」；机场三字码示例用中性城市）
 - [ ] 无订单实价/外币金额/阈值真值（改占位符）
 - [ ] 无订单号/账户/支付/联系方式
-- [ ] 无本机绝对路径与 cron job ID（改通用描述）
+- [ ] 无本机绝对路径与 cron job ID（改通用描述；profile 用 `~` 或环境变量）
 - [ ] 案例酒店若指向本人真实订单 → 改占位名；公共品牌名（教学用）可保留
-- [ ] 实时参数只存 memory/cron，不进 skill 文件
+- [ ] 实时参数只存 memory/cron 本地配置，不进 skill 文件
 
 ## Gotchas
-- **发布前必跑脱敏 grep**：真实日期/城市/订单价/本机路径一旦进过文件，历史 commit 也会留痕——先 grep 干净再 git add。
+- **发布前必跑脱敏 grep**：真实日期/城市/订单价/本机路径/真实航班号一旦进过文件，历史 commit 也会留痕——先 grep 干净再 git add。
 - **集团 ≠ 品牌**：集团（如 IHG、Marriott）与品牌（如 Holiday Inn、InterContinental）是两层；名称误判会让整条候选链作废，必须回溯撤回全部关联结论。
 - **标记「已订」四要素**：完整名称 + 入住日期 + 实际价格 + 预订状态，缺一不可。
 - **目的驱动**：用户给出「感觉/体验」时，不要反问「那你想去哪个国家」——把愿望翻译成目的地与结构是 agent 的职责。
 - **安全排查时机错位即失效**：健康/CDC 层在选目的地时就查（可一票否决，备孕留足 ≥3 个月缓冲）；政治地貌层放订票时 + 出发前 15 天，过期结论作废。
 - **盯价静默契约**：无变化零输出；`mins` 破历史低才报新低、`alerted` 防复读、涨破阈值时清键。
+- **Booking 搜索页对自动化谎报「暂无空房」**（实测：大型酒店 + 近期日期也骗）——查价一律走**房产页** `?checkin=&checkout=` 房型表；搜索页只用来拿房产 URL。
+- **携程国际线登录墙会翻转**：同一天内时而放行时而 `needUserLogin`——降级告警键设一次不许清（清了每次翻转都复读）；价格走免登录的日历底价 API，不受影响。
+- **Windows no_agent cron 无 bash、PATH python 无 playwright**：`.sh` 直接报错 → 必须 `vibe_trip_entry.py` 转交。
+- **房价口径**：日历底价 API（免登录）与列表页/房产页可能略有差异（舱位、含税口径）——盯价固定用一个源，跨源只作交叉参考。
 - **Booking 同意墙**：复选框是隐藏 input，必须 JS `el.click()` 绕过 actionability，`locator.check()` 必超时。
 - **URL 判断只用 path**：`"xxx" in page.url` 会被 `target_page=` 编码参数骗过，一律 `urlparse(url).path`。
-- **Agoda 价格对**：实付 = 划线价 − 已减（正则 `已减D RMB…¥S`）；含税单价 × 晚数 = 总价估算；不可退款档用 DOM 上溯配对防串档。
+- **Agoda 价格对**：实付 = 划线价 − 已减（正则 `已减\d RMB…¥S`）；含税单价 × 晚数 = 总价估算；不可退款档用 DOM 上溯配对防串档。
+- **房型关键词是 AND 语义**（`room_must: ["豪华间","阳台"]` 要求同时命中），酒店名关键词在搜索页是 OR 语义——别混用。
 
 ---
-*方法论由旅行规划实践沉淀；盯价部分与 skill `devops/web-price-monitoring` 同源互补。*
+*方法论由旅行规划实践沉淀；盯价部分与 skill `devops/web-price-monitoring` 同源互补；哨兵 cron / 状态游标 / 静默契约的设计灵感来自闲鱼查价监控 skill（`devops/xianyu-monitoring`，ai-goofish-monitor 实践），致谢！*

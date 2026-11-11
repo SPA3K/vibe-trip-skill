@@ -1,0 +1,17 @@
+{
+  "legs": [
+    {"key": "L1", "dep": "AAA", "arr": "BBB", "date": "YYYY-MM-DD", "label": "第一单 去程 示例"},
+    {"key": "L2", "dep": "BBB", "arr": "AAA", "date": "YYYY-MM-DD", "label": "第一单 返程 示例（两人同航班）"},
+    {"key": "L3", "dep": "AAA", "arr": "CCC", "date": "YYYY-MM-DD", "label": "第二单 第一段 示例"},
+    {"key": "L4", "dep": "CCC", "arr": "BBB", "date": "YYYY-MM-DD", "label": "第二单 第二段 示例"}
+  ],
+  "orders": [
+    {"key": "order1", "legs": ["L1", "L2"], "label": "第一单 往返合计（每人）"},
+    {"key": "order2", "legs": ["L3", "L4"], "label": "第二单 合计（每人）"},
+    {"key": "grand", "legs": ["L1", "L2", "L2", "L3", "L4"], "label": "两人全程五段合计"}
+  ],
+  "pairing": {"recommend": "L2", "match": ["L1", "L4"]},
+  "reference": {"order1": null},
+  "hotels": [],
+  "chrome": {"cdp": "http://127.0.0.1:9333", "profile": ""}
+}
