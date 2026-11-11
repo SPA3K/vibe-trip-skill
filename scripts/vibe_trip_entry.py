@@ -55,10 +55,10 @@ def main():
         sys.exit(proc.returncode)
     except subprocess.TimeoutExpired:
         print("⚠️ vibe-trip monitor timeout (>25min)")
-        sys.exit(0)
+        sys.exit(4)
     except Exception as e:
         print(f"⚠️ vibe-trip entry failed: {str(e)[:160]}")
-        sys.exit(0)
+        sys.exit(5)
 
 
 if __name__ == "__main__":

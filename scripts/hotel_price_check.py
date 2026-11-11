@@ -61,13 +61,49 @@ def ensure_chrome(timeout=30):
 
 
 def _page():
-    from playwright.sync_api import sync_playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        raise RuntimeError(
+            "需要 playwright，请先 pip install playwright / "
+            "playwright is required: pip install playwright")
     ensure_chrome()
     p = sync_playwright().start()
     b = p.chromium.connect_over_cdp(CDP)
     ctx = b.contexts[0] if b.contexts else b.new_context(locale="zh-CN")
     page = ctx.pages[0] if ctx.pages else ctx.new_page()
     return p, page
+
+
+def resolve_booking_url(ss, checkin, checkout):
+    """按酒店名拿房产页 URL：搜索页只用来取链接。
+
+    2026-11 实测：搜索页的"是否有房"对自动化会降级成暂无空房（不可信），
+    但卡片链接是真实的相关性排序第一名，取来直接跳房产页查价。
+    """
+    import urllib.parse as up
+    p, page = _page()
+    try:
+        url = ("https://www.booking.com/searchresults.html"
+               f"?ss={up.quote(ss)}&checkin={checkin}&checkout={checkout}"
+               "&group_adults=2&no_rooms=1&selected_currency=CNY&lang=zh-cn")
+        page.goto(url, timeout=45000, wait_until="domcontentloaded")
+        page.wait_for_timeout(6000)
+        return page.evaluate("""(ss) => {
+            const tokens = ss.toLowerCase().split(/\\s+/);
+            const cards = document.querySelectorAll('[data-testid="property-card"]');
+            for (const c of cards) {
+                const t = (c.innerText || '').toLowerCase();
+                if (tokens.some(k => t.includes(k))) {
+                    const a = c.querySelector('a[href*="/hotel/"]');
+                    if (a) return a.href.split('?')[0];
+                }
+            }
+            const a = document.querySelector('a[href*="/hotel/"]');
+            return a ? a.href.split('?')[0] : null;
+        }""", ss)
+    finally:
+        p.stop()
 
 
 def check_booking(ss, checkin, checkout, nights, must=None, alt=None):
@@ -167,7 +203,8 @@ def check_agoda(url, nights):
         p.stop()
 
 
-def check_booking_property(url, checkin, checkout, nights, room_must=None):
+def check_booking_property(url, checkin, checkout, nights, room_must=None,
+                           currency="CNY"):
     """房产页直查（推荐路线）。
 
     2026-11 实测：Booking 搜索结果页会对自动化访问降级成"暂无空房"（连大型酒店
@@ -178,7 +215,7 @@ def check_booking_property(url, checkin, checkout, nights, room_must=None):
     """
     base = url.split("?")[0]
     pu = (f"{base}?checkin={checkin}&checkout={checkout}"
-          "&group_adults=2&no_rooms=1&selected_currency=CNY&lang=zh-cn")
+          f"&group_adults=2&no_rooms=1&selected_currency={currency}&lang=zh-cn")
     p, page = _page()
     try:
         page.goto(pu, timeout=50000, wait_until="domcontentloaded")
@@ -245,6 +282,8 @@ def main() -> int:
     ap.add_argument("--url", help="Booking 房产页 URL（推荐，绕过搜索页降级）或 Agoda 房产页 URL")
     ap.add_argument("--room-must", action="append", default=[],
                     help="房型名关键词（AND），如 --room-must 豪华间 --room-must 阳台")
+    ap.add_argument("--currency", default="CNY",
+                    help="酒店计价币种（默认 CNY；机票日历 API 仅返回 CNY）")
     ap.add_argument("--checkin")
     ap.add_argument("--checkout")
     ap.add_argument("--nights", type=int, required=True)
@@ -256,16 +295,30 @@ def main() -> int:
         if a.platform == "booking":
             if a.url:
                 res = check_booking_property(a.url, a.checkin, a.checkout,
-                                             a.nights, room_must=a.room_must or None)
+                                             a.nights, room_must=a.room_must or None,
+                                             currency=a.currency)
             elif a.ss and a.checkin and a.checkout:
-                res = check_booking(a.ss, a.checkin, a.checkout, a.nights,
-                                    must=a.must or [a.ss])
+                # 按名字查：搜索页只解析房产链接，价格在房产页取（搜索页会降级）
+                url = resolve_booking_url(a.ss, a.checkin, a.checkout)
+                if not url:
+                    print(f"⚠️ 未找到酒店链接 cannot resolve hotel URL: {a.ss}",
+                          file=sys.stderr)
+                    return 1
+                res = check_booking_property(url, a.checkin, a.checkout, a.nights,
+                                             room_must=a.room_must or None,
+                                             currency=a.currency)
             else:
                 ap.error("booking 需要 --url 或 (--ss --checkin --checkout)")
         else:
             if not a.url:
                 ap.error("agoda 需要 --url")
-            res = check_agoda(a.url, a.nights)
+            url = a.url
+            if a.currency != "CNY":
+                if "currency=" in url:
+                    url = re.sub(r"currency=[A-Za-z]+", f"currency={a.currency}", url)
+                else:
+                    url += ("&" if "?" in url else "?") + f"currency={a.currency}"
+            res = check_agoda(url, a.nights)
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1

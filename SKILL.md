@@ -1,7 +1,7 @@
 ---
 name: vibe-trip-skill
 version: 2.0.0
-description: "一条龙旅行技能（原 trip-planner，2.0 更名）：从性格/偏好探讨与需求收集出发 → 推导目的地与行程结构 → 酒店四维核验与身份硬核验 → 全平台查价比价（携程日历底价免费 API、列表页航班号、Booking/Agoda 房产页配方）→ no_agent cron 持续盯价（史低告警、同机航班配对、退旧订新）。USE WHEN 规划旅行/度假/蜜月行程、查机票酒店价格、全平台比价、盯价/价格监控、核验酒店身份与营业风险、目的地安全/健康风险排查、复盘旅行预算。NOT FOR 盯价技术深水区（同意墙/告警防复读细节用 web-price-monitoring）、二手商品监控（用 xianyu-monitoring）。"
+description: "一条龙旅行技能（原 trip-planner，2.0 更名）：从性格/偏好探讨与需求收集出发 → 推导目的地与行程结构 → 酒店四维核验与身份硬核验 → 多来源查价比价（携程日历底价 API、列表页航班号、Booking/Agoda 房产页配方）→ no_agent cron 持续盯价（史低告警、同机航班配对、退旧订新）。USE WHEN 规划旅行/度假/蜜月行程、查机票酒店价格、多来源比价、盯价/价格监控、核验酒店身份与营业风险、目的地安全/健康风险排查、复盘旅行预算。NOT FOR 盯价技术深水区（同意墙/告警防复读细节用 web-price-monitoring）、二手商品监控（用 xianyu-monitoring）。"
 tags: [travel, hotel, budget, monitoring, planning, price, vibe-trip]
 ---
 # Vibe Trip Skill — 一条龙：需求探讨 → 定地点 → 查价 → 盯价
@@ -94,6 +94,13 @@ tags: [travel, hotel, budget, monitoring, planning, price, vibe-trip]
 4. **任何停业/装修/设施受限的结论，必须确认讨论的是同一家酒店。**
 5. 发现识别错误 → 立即更正，并**撤回此前基于错误酒店得出的全部结论**（品牌误判会污染整套行程判断——真实教训：曾将一家酒店误认为集团旗下另一品牌的旗舰，导致后续沙滩/设施对比全部作废）。
 
+### 比价与订后四条（严格同条件才可比）
+
+1. **同条件才可比**：入住/退房日期、人数与儿童年龄、房间数、床型、早餐、税费、取消政策必须完全一致，任一不同不入同一张比价表。
+2. **房型身份核验**：匹配到酒店 ≠ 匹配到房型——核对具体房型、床型、景观、面积、是否含阳台等标签，与用户订的那间对上。
+3. **价格可比性**：会员价、移动端价、优惠券、积分抵扣、预付价/到店付**不可混比**；先对齐口径（含税与否、每晚还是整段总价、是否含早）。
+4. **降价 ≠ 可无损退订**：退旧订新前必须比对新旧订单的**取消截止时间、退款金额、支付方式、房型与入住权益**，给出「是否值得重订」的判断。盯价只负责发现价格更低，重订决策单独做，不自动建议退订。
+
 ## 7. 第七步：每日行程（交通先行）
 先定城市间交通，再排每日活动。考虑：抵达时间｜入住/退房时间｜景点开放时间｜交通耗时｜天气体力｜餐饮时间｜自由活动与休息。
 
@@ -121,13 +128,14 @@ tags: [travel, hotel, budget, monitoring, planning, price, vibe-trip]
 
 > 技术深水区（PIPL 同意墙、区域过滤、告警防复读十坑）见 **skill `devops/web-price-monitoring`**；本节是本 skill 固化的工具箱。
 
-### 11.1 scripts/ 工具箱（免费查询 API，即拿即用）
+### 11.1 scripts/ 工具箱（免登录查询 API，当前实测，即拿即用）
 
 | 脚本 | 能力 | 依赖 | 关键事实（2026-11 实测） |
 |---|---|---|---|
-| `ctrip_lowest_price.py` | 携程日历底价：任意三字码城市对 + 日期 → 该日最低价（元），一次返回 366 天日历 | 纯标准库 | **免费、免登录、免 key**；`price=0` = 无航班；口径=低价日历，与列表页「¥XX起」可能略有差异 |
+| `ctrip_lowest_price.py` | 携程日历底价：任意**城市码**对 + 日期 → 该日最低价（CNY），一次返回 366 天日历 | 纯标准库 | **当前实测**免登录免 key（第三方接口，可能失效）；**城市码非机场码**（北京=BJS，传 PEK 全 0）；`price=0` = 无航班**或**无数据（不可区分）；口径=低价日历，与列表页「¥XX起」略有差异 |
 | `ctrip_flight_list.py` | 携程列表页：航班号、起降时刻、价格、经停行程的**全部航班号** | playwright(CDP) | 国内线免登录；**国际线登录墙时有时无**（`needUserLogin` 翻转），gated 时优雅降级返回 `gated=true` |
-| `hotel_price_check.py` | 酒店比价：Booking 搜索页 / **Booking 房产页（推荐）** / Agoda 房产页 → 房型、整段总价、可取消价 | playwright(CDP) | **Booking 搜索页会对自动化降级谎报「暂无空房」（实测连大型酒店近期日期都骗），房产页带日期参数的房型表才是真库存** |
+| `hotel_price_check.py` | 酒店比价：**按名字 `--ss`（自动解析房产页链接后查价）** / `--url` 房产页（Booking、Agoda）→ 房型、整段总价、可取消价；`--room-must` 锁房型、`--currency` 切币种 | playwright(CDP) | **Booking 搜索页会对自动化降级谎报「暂无空房」（实测连大型酒店近期日期都骗），房产页带日期参数的房型表才是真库存**；`--ss` 只用搜索页取链接 |
+| `trip_budget.py` | **全包预算预估（showcase）**：机票日历实时价 + 酒店房产页实时总价 + 日预算估算（餐饮/交通/门票/保险/机动）→ 总区间与人均（估算项 ±20%） | playwright(CDP) | 读配置 `budget` 段（flight_order/persons/days/daily…）；机票日历 API 仅 CNY，预算统一 CNY 汇总；`--json` 出结构化 |
 | `vibe_trip_monitor.py` | 多段机票 + 多酒店持续盯价：史低状态机、单合计、同机航班配对、退旧订新告警 | playwright(CDP) | 静默契约（无变化零输出），`--verbose` 看读数；配置 `vibe_trip_config.json` |
 | `vibe_trip_entry.py` | cron 入口：把监控转交给带 playwright 的 Python 并透传 stdout | 纯标准库 | Windows 的 no_agent cron **没有 bash**（.sh 直接报错），默认 PATH 的 python 没 playwright → 必须用它 |
 
@@ -135,8 +143,8 @@ tags: [travel, hotel, budget, monitoring, planning, price, vibe-trip]
 
 ```bash
 # 即拿即用示例
-python scripts/ctrip_lowest_price.py --dep PEK --arr BKK --date 2027-06-10 --window 3
-python scripts/ctrip_flight_list.py --dep pek --arr bkk --date 2027-06-10
+python scripts/ctrip_lowest_price.py --dep CAN --arr BKK --date 2027-06-10 --window 3
+python scripts/ctrip_flight_list.py --dep can --arr bkk --date 2027-06-10
 python scripts/hotel_price_check.py --platform booking --url "https://www.booking.com/hotel/th/xxx.html" \
     --checkin 2027-06-10 --checkout 2027-06-17 --nights 7 --room-must 豪华间
 python scripts/vibe_trip_monitor.py --verbose     # 本地跑一轮盯价

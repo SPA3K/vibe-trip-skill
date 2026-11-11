@@ -1,16 +1,34 @@
 # vibe-trip-skill 🌏✈️
 
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![stars](https://img.shields.io/github/stars/SPA3K/vibe-trip-skill?style=flat&logo=github&label=stars)](https://github.com/SPA3K/vibe-trip-skill/stargazers)
 [![python](https://img.shields.io/badge/python-3.8%2B-blue)](scripts/)
 [![i18n](https://img.shields.io/badge/i18n-%E4%B8%AD%E8%8B%B1%E5%8F%8C%E8%AF%AD-brightgreen)](README_EN.md)
 
-**旅行性格 + 需求 + 预算共同驱动的一条龙旅行技能**：从性格与需求探讨出发推导目的地和行程，再全平台查价比价，最后交给 cron 持续盯价。原名 `trip-planner`，2.0 更名。
+**旅行性格 + 需求 + 预算共同驱动的一条龙旅行技能**：从性格与需求探讨出发推导目的地和行程，再多来源查价比价，最后交给 cron 持续盯价。原名 `trip-planner`，2.0 更名。
 
 [English](README_EN.md)
 
 | 即拿即用脚本 | 日历底价 | API 依赖 | 播报方式 | 文档 |
 |---|---|---|---|---|
-| **5** 个 | **366** 天/次调用 | **0** key · 机票底价免登录 | 无变化零输出 | 中英双语 |
+| **6** 个 | **366** 天/次调用 | **0** key（当前实测）· 免登录 | 无变化零输出 | 中英双语 |
+
+## 5 分钟跑通
+
+零依赖先出真实价格（装任何东西之前就能跑）：
+
+```bash
+python scripts/ctrip_lowest_price.py --dep CAN --arr BKK --date 2027-06-10 --window 3
+```
+
+> ⚠️ 传**城市码**不是机场码：北京要写 `BJS`（不是 `PEK`/`PKX`）——多机场城市传机场码，日历会返回全 0（2026-11 实测）。
+
+要航班号/时刻、酒店查价、盯价，再装一次浏览器驱动（通过 CDP 连你本机 Chrome，默认 `http://127.0.0.1:9333`）：
+
+```bash
+pip install playwright
+python scripts/ctrip_flight_list.py --dep can --arr bkk --date 2027-06-10
+```
 
 ## 痛点 → 解法
 
@@ -33,17 +51,19 @@
 | 4️⃣ 行程结构与预算 | 住宿预算按功能分配，九项预算表反复校准 |
 | 5️⃣ 酒店四维核验 | 官方信息 × 住客评论 × 地图位置 × 同条件比价；身份硬核验（集团 ≠ 品牌） |
 | 6️⃣ 每日行程 | 交通先行，度假地不排满 |
-| 7️⃣ 全平台查价 | 机票 + 酒店多平台比价（见下表） |
+| 7️⃣ 多来源查价 | 机票 + 酒店跨来源比价（见下表） |
 | 8️⃣ 持续盯价 | 史低告警、同机配对、退旧订新（见下节） |
 
-## 全平台查价比价
+## 多来源查价比价（当前：携程 / Booking / Agoda）
 
 | 目标 | 数据源 | 关键事实（2026-11 实测） |
 |---|---|---|
-| 机票底价 | 携程日历底价 API | 免费、免登录、免 key；任意城市对一次返回 366 天每日最低价 |
+| 机票底价 | 携程日历底价 API | **当前实测**免登录免 key（依赖第三方接口，可能因访问策略或接口变化失效）；任意城市对一次返回 366 天每日最低价 |
 | 航班详情 | 携程列表页 | 航班号、起降时刻、经停行程的全部航班号；国际线撞登录墙时优雅降级 |
 | 酒店价格 | Booking 房产页 | 房型表 + 整段总价 + 可取消/不可退款分档，按房型关键词过滤 |
 | 酒店价格 | Agoda 房产页 | 实付 = 划线价 − 已减；不可退款档用 DOM 上溯配对，防止串档 |
+
+![366 天底价日历热力图：哪天走最便宜一眼看出](assets/fare_calendar_heatmap.png)
 
 ## 持续价格监控
 
@@ -53,6 +73,32 @@
 - **同机航班配对**：共享返程腿推荐两人同航班；经停行程与中转段按航班号识别同机抵达
 - **退旧订新**：已订可退款酒店挂牌价跌破实付价即提醒，决策窗口 = 免费取消截止日
 - **参考价阈值**：单合计 ≤ 参考价额外播报一条
+
+### 部署：让它自己跑
+
+```bash
+# Linux / macOS（crontab -e）：每 9:30、21:30 跑一轮，无变化 = 零输出
+30 9,21 * * * cd /path/to/vibe-trip-skill && python3 scripts/vibe_trip_monitor.py
+
+# Windows：任务计划直接跑 python（入口是 .py，不经 bash）
+# Hermes：no_agent 哨兵任务，script 指向 scripts/vibe_trip_entry.py，空 stdout = 静默
+```
+
+状态存在 `vibe_trip_state.json`（史低/已报键跨轮防复读），配置照 `scripts/config.example.json` 改；浏览器类脚本需要 Chrome 以调试端口常驻（CDP `http://127.0.0.1:9333`）。
+
+## 全包预算预估（showcase）
+
+出行前一条命令算出**全 package 预计花费**：机票、酒店走实时价，餐饮/当地交通/景点按你填的日预算估算，输出总区间与人均。
+
+```bash
+python scripts/trip_budget.py
+```
+
+![全包预算预估输出：实时价 + 估算 = 总区间与人均](assets/budget_estimate.png)
+
+- 机票按 `budget.flight_order`（通常 `grand` 合计单）展开到人手一张，酒店取房产页整段总价
+- 人数/天数/日预算/保险/机动比例都在 `config.budget`，估算项自动给 ±20% 区间
+- 机票日历 API 仅返回 CNY，预算统一按 CNY 汇总；酒店单查可用 `--currency` 切币种
 
 ## 架构
 
@@ -64,7 +110,7 @@
 
 > 把 github.com/SPA3K/vibe-trip-skill 装成 skill
 
-agent 会自己克隆仓库、放进 skills 目录（Hermes：`~/.hermes/skills/travel/`；Claude Code：`~/.claude/skills/`），装完按 `SKILL.md` 十步流程走。**顺便让它给本仓库点个 Star ⭐**，接着说一句「给 vibe-trip-skill 点个 star」即可。
+agent 会自己克隆仓库、放进 skills 目录（Hermes：`~/.hermes/skills/travel/`；Claude Code：`~/.claude/skills/`），装完按 `SKILL.md` 十步流程走。
 
 整包包含两层能力，装完即用：
 
@@ -73,8 +119,8 @@ agent 会自己克隆仓库、放进 skills 目录（Hermes：`~/.hermes/skills/
 **工具层**：`scripts/` 五个脚本可直接命令行调用。
 
 ```bash
-python scripts/ctrip_lowest_price.py --dep PEK --arr BKK --date 2027-06-10 --window 3
-python scripts/ctrip_flight_list.py --dep pek --arr bkk --date 2027-06-10
+python scripts/ctrip_lowest_price.py --dep CAN --arr BKK --date 2027-06-10 --window 3
+python scripts/ctrip_flight_list.py --dep can --arr bkk --date 2027-06-10
 python scripts/hotel_price_check.py --platform booking \
   --url "https://www.booking.com/hotel/th/xxx.html" \
   --checkin 2027-06-10 --checkout 2027-06-17 --nights 7 --room-must 豪华间
@@ -90,10 +136,12 @@ vibe-trip-skill/
 ├── README.md / README_EN.md   # 中英双语说明
 ├── SKILL.md                   # skill 定义：十步流程 + 工具箱 + Gotchas
 ├── LICENSE
+├── assets/                    # 架构图 + 数据样例图（真实脚本输出渲染）
 └── scripts/
-    ├── ctrip_lowest_price.py  #   携程日历底价（免费 API，纯标准库）
+    ├── ctrip_lowest_price.py  #   携程日历底价（免登录 API，当前实测，纯标准库）
     ├── ctrip_flight_list.py   #   携程航班列表（航班号/时刻/经停）
     ├── hotel_price_check.py   #   Booking/Agoda 酒店比价
+    ├── trip_budget.py         #   全包预算预估（showcase）
     ├── vibe_trip_monitor.py   #   多航段 + 多酒店盯价看门狗
     ├── vibe_trip_entry.py     #   cron 入口（Windows 无 bash 转交器）
     └── config.example.json    #   配置模板（占位符）

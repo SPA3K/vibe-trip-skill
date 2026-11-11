@@ -12,6 +12,19 @@
   ],
   "pairing": {"recommend": "L2", "match": ["L1", "L4"]},
   "reference": {"order1": null},
-  "hotels": [],
+  "hotels": [
+    {"key": "h1", "platform": "booking",
+     "url": "https://www.booking.com/hotel/th/xxx.html",
+     "checkin": "YYYY-MM-DD", "checkout": "YYYY-MM-DD", "nights": 7,
+     "room_must": ["豪华间"], "alert_below": null}
+  ],
+  "budget": {
+    "flight_order": "grand",
+    "persons": 2,
+    "days": 11,
+    "daily": {"food": 200, "transport": 100, "tickets": 150},
+    "insurance_per_person": 200,
+    "misc_pct": 0.1
+  },
   "chrome": {"cdp": "http://127.0.0.1:9333", "profile": ""}
 }

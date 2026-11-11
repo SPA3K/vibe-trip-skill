@@ -3,9 +3,9 @@
 """vibe-trip-skill · 携程日历底价查询（免费 API，无需登录、无需 key，纯标准库）
 
 用法:
-  python ctrip_lowest_price.py --dep PEK --arr BKK --date 2027-06-10
-  python ctrip_lowest_price.py --dep PEK --arr BKK --date 2027-06-10 --window 7
-  python ctrip_lowest_price.py --dep PEK --arr BKK --date 2027-06-10 --json
+  python ctrip_lowest_price.py --dep CAN --arr BKK --date 2027-06-10
+  python ctrip_lowest_price.py --dep CAN --arr BKK --date 2027-06-10 --window 7
+  python ctrip_lowest_price.py --dep CAN --arr BKK --date 2027-06-10 --json
 
 输出: 目标日期的该航线最低价（元，CNY）；--window N 附带前后 N 天价格。
 price=0 表示该日无航班/无价格。口径 = 携程低价日历（可能含中转/邻近机场最低舱位），
@@ -64,7 +64,7 @@ def fetch_lowest(dep: str, arr: str, start_date: str) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="携程日历底价（免费API）")
-    ap.add_argument("--dep", required=True, help="出发机场/城市三字码, 如 PEK")
+    ap.add_argument("--dep", required=True, help="出发机场/城市三字码, 如 CAN")
     ap.add_argument("--arr", required=True, help="到达三字码, 如 BKK")
     ap.add_argument("--date", required=True, help="目标日期 YYYY-MM-DD")
     ap.add_argument("--window", type=int, default=0, help="附带前后 N 天价格")

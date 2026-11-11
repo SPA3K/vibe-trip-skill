@@ -3,8 +3,8 @@
 """vibe-trip-skill · 携程航班列表抓取（航班号/时刻/价格），CDP 附着真实浏览器
 
 用法:
-  python ctrip_flight_list.py --dep pek --arr bkk --date 2027-06-10
-  python ctrip_flight_list.py --dep pek --arr bkk --date 2027-06-10 --json
+  python ctrip_flight_list.py --dep can --arr bkk --date 2027-06-10
+  python ctrip_flight_list.py --dep can --arr bkk --date 2027-06-10 --json
 
 环境变量:
   VIBE_TRIP_CDP            CDP 端点（默认 http://127.0.0.1:9333）
@@ -58,7 +58,12 @@ def ensure_chrome(timeout=30):
 
 def fetch_flights(dep: str, arr: str, date: str) -> dict:
     """返回 {gated: bool, flights: [{flight,dep_time,arr_time,price,raw}], min_price}"""
-    from playwright.sync_api import sync_playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        raise RuntimeError(
+            "需要 playwright，请先 pip install playwright / "
+            "playwright is required: pip install playwright")
 
     url = (f"https://flights.ctrip.com/online/list/oneway-{dep.lower()}-{arr.lower()}"
            f"?depdate={date}&cabin=y_s&adult=1&child=0&infant=0")

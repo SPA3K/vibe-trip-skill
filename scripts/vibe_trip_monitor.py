@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 """vibe-trip-skill · 查价盯价监控（no_agent cron 看门狗，静默契约）
 
-契约: 无变化零输出（空 stdout = 静默）；新低 / 破参考价 / 配对变化 / 出错才播报。
-      --verbose 附带全部读数（调试用）。
+契约: 无变化零输出（空 stdout = 静默）。事件分三类：建基线（首读）/ 破史低
+      （标注监控期起点，非全网史低）/ 达参考价或跌破基准；另有配对变化、
+      错误与"全部航段无数据"播报。失败走非零退出码，让 cron 可观测。
 
 配置: vibe_trip_config.json（同目录，或 VIBE_TRIP_CONFIG 指定）——
   {
@@ -33,16 +34,23 @@ ALERTS, NOTES = [], []
 
 
 def load_json(path, default):
+    """返回 (obj, err)。err='missing'/'corrupt'/None。绝不把损坏文件静默降级成
+    默认值——那会悄悄重置史低（用户信任第一原则）。"""
+    if not os.path.exists(path):
+        return default, "missing"
     try:
         with open(path, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return default
+            return json.load(f), None
+    except Exception as e:
+        return None, f"corrupt: {str(e)[:80]}"
 
 
 def save_json(path, obj):
-    with open(path, "w", encoding="utf-8") as f:
+    """原子写：先写 .tmp 再 replace，避免半截 JSON 毁掉状态。"""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, path)
 
 
 def note(msg):
@@ -175,10 +183,14 @@ def do_pairing(cfg, st):
 def main():
     cfg_path = os.environ.get("VIBE_TRIP_CONFIG") or os.path.join(
         HERE, "vibe_trip_config.json")
-    cfg = load_json(cfg_path, None)
+    cfg, err = load_json(cfg_path, None)
+    if err == "corrupt":
+        print(f"⚠️ vibe-trip monitor: 配置损坏 config corrupt（不静默降级）: "
+              f"{cfg_path} | {err}")
+        return 2
     if not cfg:
-        print(f"⚠️ vibe-trip monitor: 缺少配置 {cfg_path}")
-        return
+        print(f"⚠️ vibe-trip monitor: 缺少配置 config not found: {cfg_path}")
+        return 2
     # 浏览器环境先落地（CDP 端点 + 登录态 profile），列表页/酒店页共用
     chrome_cfg = cfg.get("chrome") or {}
     if chrome_cfg.get("cdp"):
@@ -186,30 +198,53 @@ def main():
     if chrome_cfg.get("profile"):
         os.environ.setdefault("VIBE_TRIP_CHROME_PROFILE", chrome_cfg["profile"])
     st_path = os.path.join(HERE, "vibe_trip_state.json")
-    st = load_json(st_path, {"values": {}, "mins": {}, "alerted": {}})
+    st, err = load_json(st_path, {"values": {}, "mins": {}, "alerted": {}})
+    if err == "corrupt":
+        # 状态损坏绝不能悄悄重置史低：非零退出让 cron 报错、由人处理
+        print(f"⚠️ vibe-trip monitor: 状态文件损坏 state corrupt（拒绝静默重置史低）: "
+              f"{st_path} | {err} — 请人工恢复/删除后重跑")
+        return 6
     values, mins, alerted = st.setdefault("values", {}), \
         st.setdefault("mins", {}), st.setdefault("alerted", {})
 
-    # ---- 逐段价格（史低） ----
+    # ---- 逐段价格：三类事件分开（建基线 / 破史低=监控期内 / 无数据） ----
+    since = st.setdefault("since", {})
+    unavailable = []
     for lg in cfg.get("legs", []):
         key = lg["key"]
         label = lg.get("label", key)
-        try:
-            cur = leg_price(lg["dep"], lg["arr"], lg["date"])
-        except Exception as e:
-            alert(f"⚠️ 价格查询失败({key}): {str(e)[:90]}")
+        cur = 0
+        for _attempt in (1, 2):      # 日历接口偶发空返回：重试一次再定性
+            try:
+                cur = leg_price(lg["dep"], lg["arr"], lg["date"])
+            except Exception as e:
+                alert(f"⚠️ 价格查询失败({key}): {str(e)[:90]}")
+                cur = -1
+                break
+            if cur:
+                break
+            time.sleep(4)
+        if cur == -1:
             continue
         if not cur:
-            note(f"{key}: no price")
+            # 0 = 当天无航班 或 接口空返回，不可区分 → 不写状态，保留可观测
+            unavailable.append(key)
             continue
         prev = mins.get(key)
         values[key] = cur
-        if prev is None or cur < prev:
+        if prev is None:
             mins[key] = cur
-            alert(f"✈ {label} 新低 ¥{cur:g}（原低 ¥{prev:g}）" if prev
-                  else f"✈ {label} 首次读数 ¥{cur:g}")
+            since[key] = time.strftime("%m-%d")
+            alert(f"✈ {label} 建基线 ¥{cur:g}（首次读数，非史低）")
+        elif cur < prev:
+            mins[key] = cur
+            alert(f"✈ {label} 破史低 ¥{cur:g}（原低 ¥{prev:g}，"
+                  f"监控期自 {since.get(key, '?')}）")
         if VERBOSE:
             note(f"[{key}] {lg['dep']}-{lg['arr']} {lg['date']} = ¥{cur:g} (min ¥{mins.get(key, cur):g})")
+    if unavailable and len(unavailable) == len(cfg.get("legs", [])):
+        alert("⚠️ 全部航段无价格数据（接口空返回或确无航班，不可区分）："
+              "本轮不更新史低，下轮复核")
 
     # ---- 单合计（史低 + 参考价） ----
     for od in cfg.get("orders", []):
@@ -221,10 +256,14 @@ def main():
         total = sum(vals)
         prev = mins.get(key)
         values[key] = total
-        if prev is None or total < prev:
+        if prev is None:
             mins[key] = total
-            alert(f"🧮 {label} 合计新低 ¥{total:g}（原低 ¥{prev:g}）" if prev
-                  else f"🧮 {label} 合计首次读数 ¥{total:g}")
+            since[key] = time.strftime("%m-%d")
+            alert(f"🧮 {label} 合计建基线 ¥{total:g}（首读）")
+        elif total < prev:
+            mins[key] = total
+            alert(f"🧮 {label} 合计破史低 ¥{total:g}（原低 ¥{prev:g}，"
+                  f"监控期自 {since.get(key, '?')}）")
         ref = (cfg.get("reference") or {}).get(key)
         if ref and total <= ref and alerted.get(key) != total:
             alert(f"🎯 {label} ¥{total:g} ≤ 参考价 ¥{ref:g}")
@@ -274,20 +313,26 @@ def main():
             alerted.pop(key + "_na", None)
             prev = mins.get(key)
             values[key] = price
-            if prev is None or price < prev:
+            if prev is None:
                 mins[key] = price
-                alert(f"🏨 {key} 新低 {price}元/{h['nights']}晚（原低 {prev or '—'}）")
+                since[key] = time.strftime("%m-%d")
+                alert(f"🏨 {key} 建基线 {price}元/{h['nights']}晚（首读，非史低）")
+            elif price < prev:
+                mins[key] = price
+                alert(f"🏨 {key} 破史低 {price}元/{h['nights']}晚"
+                      f"（原低 {prev}元，监控期自 {since.get(key, '?')}）")
             cap = h.get("cap")
             if cap and price <= cap and alerted.get(key) != price:
                 alert(f"🏨 {key} 达预算 {price}元 ≤ {cap}元")
                 alerted[key] = price
             elif cap and price > cap:
                 alerted.pop(key, None)
-            # 跌破基准线（如已订可退款价）= 退旧订新机会，严格小于才报
+            # 跌破基准线（如已订可退款价）= 潜在退旧订新机会。注意：价格更低
+            # ≠ 可无损退订，动手前必须比对取消截止日/退款金额/房型权益（SKILL 规则）
             below = h.get("alert_below")
             if below and price < below and alerted.get(key + "_below") != price:
                 alert(f"🔔 {key} 跌破基准 {price}元 < {below}元"
-                      f"（已订可退款 → 可退旧订新）")
+                      f"（先比取消截止日/退款额/房型，别默认可无损重订）")
                 alerted[key + "_below"] = price
             elif below and price >= below:
                 alerted.pop(key + "_below", None)
@@ -306,13 +351,17 @@ def main():
         print("  mins:", json.dumps(mins, ensure_ascii=False))
     if ALERTS:
         print("✈ vibe-trip 查价播报 " + time.strftime("%m-%d %H:%M"))
+        print("源: 携程日历底价API · Booking/Agoda 房产页 | "
+              "价格随时可能变动，以下为查询时点读数")
         for a in ALERTS:
             print(a)
+    return 0
 
 
 if __name__ == "__main__":
     try:
-        main()
+        sys.exit(main() or 0)
     except Exception as e:
+        # 非零退出 → no_agent cron 把失败当错误告警，可观测不装死
         print(f"⚠️ vibe-trip monitor fatal: {str(e)[:200]}")
-        sys.exit(0)
+        sys.exit(3)
