@@ -179,6 +179,12 @@ def main():
     if not cfg:
         print(f"⚠️ vibe-trip monitor: 缺少配置 {cfg_path}")
         return
+    # 浏览器环境先落地（CDP 端点 + 登录态 profile），列表页/酒店页共用
+    chrome_cfg = cfg.get("chrome") or {}
+    if chrome_cfg.get("cdp"):
+        os.environ.setdefault("VIBE_TRIP_CDP", chrome_cfg["cdp"])
+    if chrome_cfg.get("profile"):
+        os.environ.setdefault("VIBE_TRIP_CHROME_PROFILE", chrome_cfg["profile"])
     st_path = os.path.join(HERE, "vibe_trip_state.json")
     st = load_json(st_path, {"values": {}, "mins": {}, "alerted": {}})
     values, mins, alerted = st.setdefault("values", {}), \

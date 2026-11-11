@@ -1,6 +1,6 @@
 # vibe-trip-skill 🌏✈️
 
-**One-stop travel skill: personality & needs discovery → destination selection → whole-platform price comparison → continuous price monitoring.**
+**One-stop travel skill: driven by travel personality + needs + budget together (not budget alone) — from personality/needs discovery to destination selection, whole-platform price comparison, and continuous price monitoring.**
 
 Formerly `trip-planner`, renamed to **vibe-trip-skill** at 2.0. Use it **standalone** (`python scripts/*.py`, no agent, no signup), load it as an **Agent Skill** (Hermes / Claude, etc.), or drive the browser parts through **cua-driver** (CDP attach to a real browser, shared login state).
 
